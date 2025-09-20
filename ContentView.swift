@@ -65,71 +65,8 @@ struct ContentView: View {
     }
 }
 
-class ForumViewModel: ObservableObject {
-    @Published var posts = [DiscussionPost]()
-    private let db = Firestore.firestore()
 
-    func fetchPosts() {
-        db.collection("discussions").order(by: "createdAt", descending: true).addSnapshotListener { querySnapshot, error in
-            guard let documents = querySnapshot?.documents else { return }
-            
-            self.posts = documents.compactMap { doc -> DiscussionPost? in
-                let data = doc.data()
-                let id = doc.documentID
-                let title = data["title"] as? String ?? ""
-                let body = data["body"] as? String ?? ""
-                let authorId = data["authorId"] as? String ?? ""
-                let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-                let commentCount = data["commentCount"] as? Int ?? 0
-                
-                var post = DiscussionPost(id: id, title: title, body: body, authorId: authorId, createdAt: createdAt, commentCount: commentCount)
-                
-                self.fetchAuthor(for: authorId) { userProfile in
-                    if let index = self.posts.firstIndex(where: { $0.id == post.id }) {
-                        self.posts[index].author = userProfile
-                    }
-                }
-                return post
-            }
-        }
-    }
-    
-    private func fetchAuthor(for userId: String, completion: @escaping (UserProfile?) -> Void) {
-        db.collection("users").document(userId).getDocument { document, _ in
-            guard let document = document, document.exists, let data = document.data() else {
-                completion(nil)
-                return
-            }
-            completion(UserProfile(
-                id: userId,
-                username: data["username"] as? String ?? "Unknown",
-                bio: data["bio"] as? String ?? "",
-                email: data["email"] as? String ?? "",
-                profileImageUrl: data["profileImageUrl"] as? String,
-                skillPoints: data["skillPoints"] as? Int ?? 0
-            ))
-        }
-    }
-}
 
-struct ForumView: View {
-    @StateObject private var viewModel = ForumViewModel()
-
-    var body: some View {
-        NavigationView {
-            List(viewModel.posts) { post in
-                NavigationLink(destination: PostDetailView(post: post)) {
-                    ForumRowView(post: post)
-                }
-            }
-            .navigationTitle("Discussions")
-            .onAppear {
-                viewModel.fetchPosts()
-            }
-            .listStyle(.plain)
-        }
-    }
-}
 
 struct ForumRowView: View {
     let post: DiscussionPost
@@ -381,7 +318,7 @@ struct AddPostView: View {
                 }
                 
                 Button(action: createPost) {
-                    Text("Post Discussion")
+                    Text("Post Discussion").foregroundColor(.blue)
                 }
                 .disabled(title.isEmpty || bodyText.isEmpty)
             }

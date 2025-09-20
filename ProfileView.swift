@@ -4,73 +4,148 @@ import FirebaseAuth
 import FirebaseFirestore
 import PhotosUI
 import FirebaseStorage
+import Combine
+
+class ProfileViewModel: ObservableObject {
+    @Published var userProfile: UserProfile?
+    @Published var userPosts: [DiscussionPost] = []
+    @Published var isLoading = true
+    
+    private let db = Firestore.firestore()
+    private var userListener: ListenerRegistration?
+    private var postsListener: ListenerRegistration?
+
+    init() {
+        fetchUserProfile()
+    }
+    
+    deinit {
+        userListener?.remove()
+        postsListener?.remove()
+    }
+    
+    func fetchUserProfile() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        self.isLoading = true
+        
+        userListener = db.collection("users").document(userId).addSnapshotListener { documentSnapshot, error in
+            guard let document = documentSnapshot else {
+                self.isLoading = false
+                return
+            }
+            
+            if !document.exists {
+                if let user = Auth.auth().currentUser {
+                    let newProfile = UserProfile(id: user.uid, username: user.displayName ?? "New User", bio: "Tap Edit to add a bio!", email: user.email ?? "")
+                    self.db.collection("users").document(user.uid).setData([
+                        "username": newProfile.username, "bio": newProfile.bio, "email": newProfile.email, "uid": user.uid, "skillPoints": 0
+                    ])
+                }
+            } else {
+                let data = document.data()
+                self.userProfile = UserProfile(
+                    id: userId,
+                    username: data?["username"] as? String ?? "N/A",
+                    bio: data?["bio"] as? String ?? "No bio.",
+                    email: data?["email"] as? String ?? "N/A",
+                    profileImageUrl: data?["profileImageUrl"] as? String,
+                    skillPoints: data?["skillPoints"] as? Int ?? 0
+                )
+                self.fetchUserPosts(userId: userId)
+            }
+            self.isLoading = false
+        }
+    }
+    
+    func fetchUserPosts(userId: String) {
+        postsListener = db.collection("discussions")
+            .whereField("authorId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                guard let documents = snapshot?.documents else { return }
+                
+                self.userPosts = documents.compactMap { doc -> DiscussionPost? in
+                    let data = doc.data()
+                    return DiscussionPost(
+                        id: doc.documentID,
+                        title: data["title"] as? String ?? "",
+                        body: data["body"] as? String ?? "",
+                        authorId: data["authorId"] as? String ?? "",
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                        commentCount: data["commentCount"] as? Int ?? 0
+                    )
+                }
+            }
+    }
+}
+
 
 struct ProfileView: View {
-    @State private var userProfile: UserProfile?
-    @State private var isLoading = true
+    @StateObject private var viewModel = ProfileViewModel()
     @State private var isEditing = false
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationView {
             VStack {
-                if isLoading {
+                if viewModel.isLoading {
                     ProgressView()
-                } else if let profile = userProfile {
-                    VStack(spacing: 20) {
-                        AsyncImage(url: URL(string: profile.profileImageUrl ?? "")) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Image(systemName: "person.circle.fill")
-                                .resizable().scaledToFit().foregroundColor(.gray.opacity(0.5))
-                        }
-                        .frame(width: 120, height: 120).clipShape(Circle())
+                } else if let profile = viewModel.userProfile {
+                    List {
+                        VStack(spacing: 20) {
+                            AsyncImage(url: URL(string: profile.profileImageUrl ?? "")) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Image(systemName: "person.circle.fill")
+                                    .resizable().scaledToFit().foregroundColor(.gray.opacity(0.5))
+                            }
+                            .frame(width: 120, height: 120).clipShape(Circle())
 
-                        Text(profile.username).font(.largeTitle).fontWeight(.bold)
-                        Text("Skill Points: \(profile.skillPoints)").font(.title3).foregroundColor(.purple).fontWeight(.semibold)
-                        Text(profile.bio).font(.body).foregroundColor(.secondary).padding(.horizontal)
+                            Text(profile.username).font(.largeTitle).fontWeight(.bold)
+                            Text("Skill Points: \(profile.skillPoints)").font(.title3).foregroundColor(.purple).fontWeight(.semibold)
+                            Text(profile.bio).font(.body).foregroundColor(.secondary).padding(.horizontal)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical)
                         
-                        Spacer()
+                        Section(header: Text("My Posts")) {
+                            if viewModel.userPosts.isEmpty {
+                                Text("You haven't posted anything yet.")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                ForEach(viewModel.userPosts) { post in
+                                    NavigationLink(destination: PostDetailView(post: post)) {
+                                        VStack(alignment: .leading) {
+                                            Text(post.title).font(.headline)
+                                            Text(post.createdAt, style: .date).font(.caption).foregroundColor(.secondary)
+                                        }
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .padding(.top, 40)
+                    .listStyle(.plain)
                     .navigationTitle("Profile")
-                    .navigationBarItems(trailing: Button("Edit") { isEditing = true })
-                    .sheet(isPresented: $isEditing, onDismiss: fetchUserProfile) {
-                        EditProfileView(userProfile: $userProfile)
+                    .navigationBarItems(
+                        leading: Button(action: { isEditing = true }) {
+                            Text("Edit Profile")
+                        },
+                        trailing: Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape.fill")
+                        }
+                    )
+                    .sheet(isPresented: $isEditing) {
+                        EditProfileView(userProfile: $viewModel.userProfile)
+                    }
+                    .sheet(isPresented: $showingSettings) {
+                        SettingsView()
                     }
                 } else {
                     Text("Could not load profile.")
                 }
             }
-            .onAppear(perform: fetchUserProfile)
-        }
-    }
-
-    func fetchUserProfile() {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        
-        db.collection("users").document(userId).addSnapshotListener { documentSnapshot, error in
-            guard let document = documentSnapshot, document.exists else {
-                if let user = Auth.auth().currentUser {
-                    let newProfile = UserProfile(id: user.uid, username: user.displayName ?? "New User", bio: "Tap Edit to add a bio!", email: user.email ?? "")
-                    db.collection("users").document(user.uid).setData([
-                        "username": newProfile.username, "bio": newProfile.bio, "email": newProfile.email, "uid": user.uid, "skillPoints": 0
-                    ]) { _ in self.userProfile = newProfile }
-                }
-                self.isLoading = false
-                return
-            }
-            
-            let data = document.data()
-            self.userProfile = UserProfile(
-                id: userId,
-                username: data?["username"] as? String ?? "N/A",
-                bio: data?["bio"] as? String ?? "No bio.",
-                email: data?["email"] as? String ?? "N/A",
-                profileImageUrl: data?["profileImageUrl"] as? String,
-                skillPoints: data?["skillPoints"] as? Int ?? 0
-            )
-            self.isLoading = false
         }
     }
 }
@@ -135,35 +210,39 @@ struct EditProfileView: View {
     }
 
     func saveProfile() {
-        guard userProfile?.id != nil else { return }
+        guard let userId = userProfile?.id else { return }
         isSaving = true
 
         if let photoData = selectedPhotoData {
             uploadPhoto(photoData) { url in
-                self.updateUserDocument(photoUrl: url?.absoluteString)
+                self.updateUserDocument(userId: userId, photoUrl: url?.absoluteString)
             }
         } else {
-            updateUserDocument(photoUrl: nil)
+            updateUserDocument(userId: userId, photoUrl: nil)
         }
     }
     
     func uploadPhoto(_ data: Data, completion: @escaping (URL?) -> Void) {
         let storageRef = Storage.storage().reference().child("profile_images/\(UUID().uuidString).jpg")
-        storageRef.putData(data, metadata: nil) { _, _ in
-            storageRef.downloadURL { url, _ in completion(url) }
+        storageRef.putData(data, metadata: nil) { _, error in
+            storageRef.downloadURL { url, error in
+                completion(url)
+            }
         }
     }
 
-    func updateUserDocument(photoUrl: String?) {
-        guard let userId = userProfile?.id else { return }
+    func updateUserDocument(userId: String, photoUrl: String?) {
         let db = Firestore.firestore()
         
         var dataToUpdate: [String: Any] = ["username": newUsername, "bio": newBio]
-        if let photoUrl = photoUrl { dataToUpdate["profileImageUrl"] = photoUrl }
+        if let photoUrl = photoUrl {
+            dataToUpdate["profileImageUrl"] = photoUrl
+        }
         
-        db.collection("users").document(userId).updateData(dataToUpdate) { _ in
-            isSaving = false
-            presentationMode.wrappedValue.dismiss()
+        db.collection("users").document(userId).updateData(dataToUpdate) { error in
+            self.isSaving = false
+            self.presentationMode.wrappedValue.dismiss()
         }
     }
 }
+
