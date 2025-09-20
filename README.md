@@ -1,67 +1,75 @@
-SkillConnect
+# SkillConnect
 
-A modern, community-driven discussion forum built natively for iOS with SwiftUI. SkillConnect allows users to connect by sharing and rewarding knowledge through a unique "Skill Points" system, creating a reputation platform based on expertise.
-  Features
+A modern, community-driven discussion forum built natively for iOS with SwiftUI. SkillConnect empowers users to connect by sharing and rewarding knowledge through a unique Skill Points system, creating a reputation-based platform centered on expertise and meaningful interactions.
 
-    Full Authentication Flow: Secure user sign-up, login (with email or username), password reset, and session persistence.
+## Features
 
-    Dynamic Discussion Forum: Users can create posts, view a real-time feed of discussions, and engage with content in a modern, card-based UI.
+- Full Authentication Flow: Secure sign-up, login (email/username), password reset, and session persistence.
+- Dynamic Discussion Forum: Real-time feed of posts with a modern, card-based UI.
+- Interactive Commenting System: Add comments, ask questions, and engage with discussions.
+- Unique Skill Points System: Reward insightful comments, build a trusted reputation.
+- Customizable User Profiles: Edit username, bio, and upload custom profile pictures.
+- Personalized Feeds: Profile page shows all posts by a specific user.
+- Advanced Theming: Light, Dark, System, and an Animated theme applied globally.
+- Real-Time Updates: Firestore snapshot listeners for instant UI refresh.
+- Push Notifications (Bonus): Stay updated on new comments or rewards (requires Firebase Cloud Messaging setup).
+- Analytics Integration (Bonus): Firebase Analytics to track user engagement and feature adoption.
+- Unit & UI Testing (Bonus): XCTest cases for critical features to ensure app reliability.
 
-    Interactive Commenting System: Add comments to any post to share insights and ask questions.
+## Technology Stack
 
-    Unique "Skill Points" System: Reward helpful comments with Skill Points, building a reputation system based on knowledge.
+- UI: SwiftUI
+- Language: Swift (with modern async/await concurrency)
+- Backend: Firebase
+  - Authentication: User management
+  - Firestore: Real-time NoSQL database
+  - Storage: Profile picture hosting
+  - Cloud Messaging: Push notifications (optional)
+  - Analytics: User engagement insights (optional)
+- State Management: Combine
+- Architecture: MVVM (Model-View-ViewModel)
+- Version Control: Git + GitHub CI/CD (bonus for professional workflow)
 
-    Customizable User Profiles: Users can edit their username, bio, and upload a custom profile picture.
+## Setup & Installation
 
-    Personalized Feeds: The profile page displays all posts made by that specific user.
-
-    Advanced Theming: Choose between Light, Dark, System, and a custom Animated theme that applies across the entire app.
-
-  Technology Stack
-
-    UI: SwiftUI
-
-    Language: Swift
-
-    Backend: Firebase
-
-        Authentication: For user management.
-
-        Firestore: Real-time NoSQL database for posts, comments, and user profiles.
-
-        Storage: For hosting user-uploaded profile pictures.
-
-    Concurrency: Modern Swift Concurrency (async/await) for seamless background tasks and data fetching.
-
-    Frameworks: Combine for reactive UI updates and state management.
-
-  Setup & Installation
-
-    To run this project, you'll need to set up your own Firebase backend.
-
-    Clone the repository:
-
-    git clone [https://github.com/](https://github.com/)[YOUR_USERNAME]/SkillConnect.git
+1. Clone the Repository:
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/SkillConnect.git
     cd SkillConnect
+    ```
+2. Create a Firebase Project:
+   - Go to [Firebase Console](https://console.firebase.google.com/) and create a new project.
+   - Add an iOS app with your bundle identifier.
+   - Enable Authentication (Email/Password), Firestore, and Storage.
+3. Add `GoogleService-Info.plist`:
+   - Download from your Firebase settings.
+   - Place it in the root of your Xcode project (SkillConnect/).
+   - (Note: Already in `.gitignore`, do NOT commit this file.)
+4. Open and Run:
+   - Open `SkillConnect.xcodeproj` in Xcode.
+   - Build and run on an iOS simulator or device.
 
-    Create a Firebase Project:
+## Screenshots
 
-        Go to the Firebase Console and create a new project.
+<p align="center">
+  <img src="Screenshots/2025-09-21%2001-14-15_1.gif" alt="SkillConnect Demo" width="600"/>
+</p>
 
-        Add an iOS app to your project with the correct bundle identifier.
 
-        In the Firebase console, enable Authentication (with the Email/Password provider), Firestore, and Storage.
+<p align="center">
+  <img src="Screenshots/login.png" alt="Login" width="300"/>
+  <img src="Screenshots/Homepage-dark.png" alt="Homepage - Dark" width="300"/>
+  <img src="Screenshots/Forumanswer-light.png" alt="Forum Answer - Light" width="300"/>
+  <img src="Screenshots/postpage-light.png" alt="Post Page - Light" width="300"/>
+  <img src="Screenshots/profile-light.png" alt="Profile - Light" width="300"/>
+  <img src="Screenshots/profile-dark.png" alt="Profile - Dark" width="300"/>
+</p>
 
-    Add GoogleService-Info.plist:
 
-        Download the GoogleService-Info.plist file from your Firebase project settings.
+## License
 
-        Place this file in the root of the Xcode project folder (SkillConnect/).
+This project is licensed under the MIT License.
 
-        Important: This file is correctly excluded by the .gitignore and should never be committed to your repository.
 
-    Open in Xcode and Run:
-
-        Open the .xcodeproj file.
-
-        Build and run the project on an iOS simulator or a physical device.
+## Author
+Rakshit Kumar
